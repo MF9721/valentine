@@ -167,6 +167,17 @@
       padding: 26px 24px;
       text-align:center;
     }
+
+    /* ✅ ADDED: photo styling */
+    .photo{
+      width: 100%;
+      max-height: 360px;
+      object-fit: cover;
+      border-radius: 22px;
+      margin: 16px 0 12px;
+      box-shadow: 0 14px 32px rgba(0,0,0,.16);
+    }
+
     .modal h2{
       margin: 10px 0 10px;
       font-size: clamp(22px, 2.4vw, 34px);
@@ -203,6 +214,12 @@
   <div class="backdrop" id="backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <div style="font-size:42px; line-height:1;">💖</div>
+
+      <!-- ✅ ADDED: your photo -->
+      <!-- If your file is in /images/ use: images/us.jpg -->
+      <!-- If your file is in the root, use: us.jpg -->
+      <img src="images/us.jpg" alt="Us together" class="photo" />
+
       <h2>Yay, great decision!</h2>
       <p>Best Valentine ever 🥰</p>
       <button id="closeModal">Close</button>
@@ -237,8 +254,6 @@
       h.style.width = size + "px";
       h.style.height = size + "px";
 
-      // keep the pseudo-circles consistent with size
-      // (we do it by scaling the whole heart box)
       // color:
       const c = heartColors[Math.floor(Math.random() * heartColors.length)];
       h.style.background = c;
@@ -247,24 +262,17 @@
       h.style.animationDelay = (Math.random() * 0.5) + "s";
       h.style.opacity = (0.25 + Math.random() * 0.55).toFixed(2);
 
-      // set pseudo parts color using CSS variables trick
       h.style.setProperty("--hc", c);
       h.style.background = c;
       h.style.filter = `blur(${Math.random()*0.35}px)`;
 
-      // paint pseudo-elements by injecting inline style
       h.style.setProperty("color", c);
       h.style.setProperty("transform", `rotate(45deg) scale(${size/18})`);
 
-      // We can’t directly set ::before/::after background with inline
-      // so we set them via a style tag approach once:
       heartsLayer.appendChild(h);
-
       setTimeout(() => h.remove(), 13000);
     }
 
-    // Ensure pseudo elements match heart color via CSSOM once
-    // (works by targeting .heart and using currentColor)
     (function patchHeartColor(){
       const style = document.createElement("style");
       style.textContent = `
@@ -274,9 +282,7 @@
       document.head.appendChild(style);
     })();
 
-    // spawn rate
     setInterval(() => {
-      // spawn a couple per tick for nicer density on big screens
       spawnHeart();
       if (Math.random() < 0.6) spawnHeart();
     }, 420);
@@ -311,19 +317,15 @@
       const panicRadius = 190;   // how far away it starts reacting
       const shakeRadius = 140;   // start shaking when closer
 
-      // Shake toggle
       if (dist < shakeRadius) noBtn.classList.add("shake");
       else noBtn.classList.remove("shake");
 
       if (dist > panicRadius) return;
 
-      // speed ramp: closer = bigger jump
-      // map dist [panicRadius..40] -> jump [90..260]
       const minDist = 40;
       const t = clamp((panicRadius - dist) / (panicRadius - minDist), 0, 1);
       const jump = 90 + t * 180;
 
-      // normalize direction away from cursor
       const safeDist = Math.max(dist, 0.001);
       const nx = dx / safeDist;
       const ny = dy / safeDist;
@@ -334,11 +336,9 @@
       const maxX = area.clientWidth  - btnRect.width;
       const maxY = area.clientHeight - btnRect.height;
 
-      // If it hits edges, bounce slightly inward
       newLeft = clamp(newLeft, 0, maxX);
       newTop  = clamp(newTop,  0, maxY);
 
-      // Extra little "teleport" if it gets corner-trapped
       if ((newLeft === 0 || newLeft === maxX) && (newTop === 0 || newTop === maxY)) {
         newLeft = Math.random() * Math.max(0, maxX);
         newTop  = Math.random() * Math.max(0, maxY);
@@ -354,7 +354,6 @@
     noBtn.addEventListener("mouseenter", placeNoRandom);
     noBtn.addEventListener("click", placeNoRandom);
 
-    // initial placement after layout paints
     requestAnimationFrame(placeNoRandom);
     window.addEventListener("resize", () => setTimeout(placeNoRandom, 50));
 
@@ -399,8 +398,6 @@
       ctx.translate(x, y);
       ctx.rotate(rot);
 
-      // Heart path (classic param-ish shape)
-      // scale around size
       const s = size / 18;
       ctx.scale(s, s);
 
@@ -440,8 +437,8 @@
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vr;
-        p.vy += 0.016;  // gravity
-        p.vx *= 0.999;  // slight drag
+        p.vy += 0.016;
+        p.vx *= 0.999;
         p.life -= 1;
 
         ctx.fillStyle = p.color;
@@ -466,7 +463,6 @@
       setTimeout(() => burstHearts(160), 240);
     }
 
-    // Yes click -> modal + hearts confetti
     yesBtn.addEventListener("click", () => {
       openModal();
       startConfetti();
