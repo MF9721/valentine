@@ -108,16 +108,28 @@
       cursor:pointer;
       user-select:none;
       -webkit-tap-highlight-color: transparent;
-      transition: transform .08s ease, filter .15s ease;
+      transition: transform .18s ease, filter .15s ease, box-shadow .18s ease;
       box-shadow: 0 10px 22px rgba(0,0,0,.10);
+      will-change: transform;
     }
 
     #yes{
       background:#22c55e;
       color:#fff;
+      transform-origin: center;
     }
     #yes:hover{ filter: brightness(1.06); }
     #yes:active{ transform: scale(0.98); }
+
+    /* Pulse + glow when growing */
+    #yes.growing{
+      animation: yesPulse 1.2s ease-in-out infinite;
+      box-shadow: 0 12px 30px rgba(34,197,94,.35);
+    }
+    @keyframes yesPulse{
+      0%, 100% { filter: brightness(1); }
+      50%      { filter: brightness(1.12); }
+    }
 
     #no{
       background:#ef4444;
@@ -168,7 +180,6 @@
       text-align:center;
     }
 
-    /* ✅ ADDED: photo styling */
     .photo{
       width: 100%;
       max-height: 360px;
@@ -215,10 +226,8 @@
     <div class="modal">
       <div style="font-size:42px; line-height:1;">💖</div>
 
-      <!-- ✅ ADDED: your photo -->
-      <!-- If your file is in /images/ use: images/us.jpg -->
-      <!-- If your file is in the root, use: us.jpg -->
-      <img src="us.jpg" alt="Us together" class="photo" />
+      <!-- Photo hosted in repo root -->
+      <img src="us.jpg?v=1" alt="Us together" class="photo" />
 
       <h2>Yay, great decision!</h2>
       <p>Best Valentine ever 🥰</p>
@@ -254,20 +263,15 @@
       h.style.width = size + "px";
       h.style.height = size + "px";
 
-      // color:
       const c = heartColors[Math.floor(Math.random() * heartColors.length)];
-      h.style.background = c;
       h.style.left = (Math.random() * 100) + "vw";
       h.style.animationDuration = (6 + Math.random() * 6) + "s";
       h.style.animationDelay = (Math.random() * 0.5) + "s";
       h.style.opacity = (0.25 + Math.random() * 0.55).toFixed(2);
 
-      h.style.setProperty("--hc", c);
-      h.style.background = c;
-      h.style.filter = `blur(${Math.random()*0.35}px)`;
-
       h.style.setProperty("color", c);
       h.style.setProperty("transform", `rotate(45deg) scale(${size/18})`);
+      h.style.filter = `blur(${Math.random()*0.35}px)`;
 
       heartsLayer.appendChild(h);
       setTimeout(() => h.remove(), 13000);
@@ -288,14 +292,19 @@
     }, 420);
 
     // ---------------------------
-    // (2) Smart "No" button: shake + speed ramp
+    // Buttons / modal refs
     // ---------------------------
     const area = document.getElementById("area");
     const noBtn = document.getElementById("no");
     const yesBtn = document.getElementById("yes");
+    const backdrop = document.getElementById("backdrop");
+    const closeModalBtn = document.getElementById("closeModal");
 
     function clamp(v, min, max){ return Math.min(Math.max(v, min), max); }
 
+    // ---------------------------
+    // (2) Smart "No" button: shake + speed ramp
+    // ---------------------------
     function placeNoRandom(){
       const maxX = area.clientWidth - noBtn.offsetWidth;
       const maxY = area.clientHeight - noBtn.offsetHeight;
@@ -314,8 +323,8 @@
 
       const dist = Math.hypot(dx, dy);
 
-      const panicRadius = 190;   // how far away it starts reacting
-      const shakeRadius = 140;   // start shaking when closer
+      const panicRadius = 190;
+      const shakeRadius = 140;
 
       if (dist < shakeRadius) noBtn.classList.add("shake");
       else noBtn.classList.remove("shake");
@@ -350,19 +359,80 @@
 
     window.addEventListener("mousemove", dodgeAway);
     window.addEventListener("touchmove", (ev) => dodgeAway(ev.touches[0]), { passive:true });
-
     noBtn.addEventListener("mouseenter", placeNoRandom);
     noBtn.addEventListener("click", placeNoRandom);
-
     requestAnimationFrame(placeNoRandom);
     window.addEventListener("resize", () => setTimeout(placeNoRandom, 50));
 
     // ---------------------------
+    // (NEW) Yes button grows + slides toward center + glows/pulses
+    // ---------------------------
+    let yesScale = 1;
+    let growthSpeed = 0.012;     // initial growth amount per tick
+    let growthAccel = 0.0018;    // acceleration per tick
+    let slideT = 0;              // 0..1 progress for sliding toward center
+    let yesGrowTimer = null;
+
+    function getYesCenterTargetX(){
+      // Move the YES button toward the horizontal center of the area
+      const areaRect = area.getBoundingClientRect();
+      const yesRect = yesBtn.getBoundingClientRect();
+      const yesHalf = yesRect.width / 2;
+      const centerX = (areaRect.width / 2) - yesHalf; // target left within area coords
+      return centerX;
+    }
+
+    function startYesGrowth(){
+      yesBtn.classList.add("growing");
+      yesGrowTimer = setInterval(() => {
+        // scale
+        yesScale += growthSpeed;
+        growthSpeed += growthAccel;
+
+        // cap scale
+        yesScale = Math.min(yesScale, 2.3);
+
+        // slide toward center gradually (ease)
+        slideT = Math.min(1, slideT + 0.03);
+
+        // compute current translateX needed to move toward center
+        const yesLeftInArea = yesBtn.offsetLeft; // relative to area
+        const targetLeft = getYesCenterTargetX();
+        const desiredDx = targetLeft - yesLeftInArea;
+
+        // apply partial movement
+        const dx = desiredDx * slideT;
+
+        // apply transform
+        yesBtn.style.transform = `translateX(${dx}px) scale(${yesScale})`;
+
+        // stop once maxed out for a while
+        if (yesScale >= 2.3 && slideT >= 1) {
+          // keep pulsing/glow but stop growing further
+          clearInterval(yesGrowTimer);
+          yesGrowTimer = null;
+        }
+      }, 900);
+    }
+
+    // start growing immediately
+    startYesGrowth();
+
+    // keep movement stable if window resizes
+    window.addEventListener("resize", () => {
+      // nudges target recalculation next tick; if timer already stopped, re-apply transform
+      if (!yesGrowTimer) {
+        slideT = 1;
+        const yesLeftInArea = yesBtn.offsetLeft;
+        const targetLeft = getYesCenterTargetX();
+        const dx = (targetLeft - yesLeftInArea) * slideT;
+        yesBtn.style.transform = `translateX(${dx}px) scale(${yesScale})`;
+      }
+    });
+
+    // ---------------------------
     // Modal
     // ---------------------------
-    const backdrop = document.getElementById("backdrop");
-    const closeModalBtn = document.getElementById("closeModal");
-
     function openModal(){ backdrop.classList.add("show"); }
     function closeModal(){ backdrop.classList.remove("show"); }
 
@@ -463,7 +533,19 @@
       setTimeout(() => burstHearts(160), 240);
     }
 
+    // Yes click -> stop growth + modal + confetti
     yesBtn.addEventListener("click", () => {
+      if (yesGrowTimer) clearInterval(yesGrowTimer);
+      yesGrowTimer = null;
+      yesBtn.classList.remove("growing");
+
+      // keep it big & centered as a little victory moment
+      slideT = 1;
+      const yesLeftInArea = yesBtn.offsetLeft;
+      const targetLeft = getYesCenterTargetX();
+      const dx = (targetLeft - yesLeftInArea) * slideT;
+      yesBtn.style.transform = `translateX(${dx}px) scale(${Math.min(yesScale, 2.3)})`;
+
       openModal();
       startConfetti();
     });
